@@ -1,0 +1,5 @@
+{
+  "name": "Copy of SmartInvoice AI",
+  "description": "A professional invoice generator featuring AI-powered extraction of billing details from unstructured text using Google Gemini.",
+  "requestFramePermissions": []
+}
