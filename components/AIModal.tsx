@@ -13,6 +13,7 @@ const AIModal: React.FC<AIModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isKeyError, setIsKeyError] = useState(false);
 
   if (!isOpen) return null;
 
@@ -21,14 +22,21 @@ const AIModal: React.FC<AIModalProps> = ({ isOpen, onClose, onSuccess }) => {
     
     setLoading(true);
     setError(null);
+    setIsKeyError(false);
+    
     try {
       const data = await extractBillingInfo(inputText);
       onSuccess(data);
       onClose();
       setInputText('');
     } catch (err: any) {
-      // Display the specific error message from the service
-      setError(err.message || 'Failed to extract data. Please try again.');
+      // Check for our specific missing key error
+      if (err.message === 'API_KEY_MISSING' || err.message.includes('API Key')) {
+        setIsKeyError(true);
+        setError('Google Gemini API Key is not configured.');
+      } else {
+        setError(err.message || 'Failed to extract data. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -56,8 +64,29 @@ const AIModal: React.FC<AIModalProps> = ({ isOpen, onClose, onSuccess }) => {
           />
           
           {error && (
-            <div className="mt-3 text-red-600 text-xs bg-red-50 p-3 rounded border border-red-100">
-              <strong>Error:</strong> {error}
+            <div className={`mt-3 text-xs p-3 rounded border ${isKeyError ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-red-50 border-red-100 text-red-600'}`}>
+              <strong>{isKeyError ? 'Configuration Required' : 'Error'}:</strong> {error}
+              
+              {isKeyError && (
+                <div className="mt-2 pl-2 border-l-2 border-amber-300">
+                  <p className="mb-1">To enable AI features on Vercel:</p>
+                  <ol className="list-decimal pl-4 space-y-1 text-[11px] text-amber-700">
+                    <li>
+                      <a 
+                        href="https://aistudio.google.com/app/apikey" 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="underline font-bold text-brand-700 hover:text-brand-900"
+                      >
+                        Click here to get your API Key
+                      </a> (It starts with "AIza...")
+                    </li>
+                    <li>In Vercel Dashboard, go to <b>Settings &gt; Environment Variables</b>.</li>
+                    <li>Add Key: <code>API_KEY</code>, Value: <code>[Paste your AIza... string]</code>.</li>
+                    <li>Redeploy your application.</li>
+                  </ol>
+                </div>
+              )}
             </div>
           )}
         </div>

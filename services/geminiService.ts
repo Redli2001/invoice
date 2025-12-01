@@ -3,12 +3,22 @@ import { PartyInfo } from "../types";
 
 // Helper to validate API Key availability
 const getApiKey = (): string => {
-  // In some build environments, process.env might be defined but empty, or the key might be missing.
-  const key = process.env.API_KEY;
+  // Safe access to process.env to prevent "process is not defined" errors in some browser environments
+  // if the bundler hasn't replaced the variable.
+  let key: string | undefined;
+  
+  try {
+    // We strictly follow the prompt rule to use process.env.API_KEY
+    // The build tool (Vite/Webpack/Vercel) must replace this or polyfill process.
+    key = process.env.API_KEY;
+  } catch (e) {
+    // If process is not defined, key remains undefined
+  }
   
   if (!key || key.trim() === '') {
     console.error("API_KEY is not set in the environment.");
-    throw new Error("API Key is missing. Please check your Vercel Environment Variables.");
+    // We throw a specific error that the UI can catch and show setup instructions for
+    throw new Error("API_KEY_MISSING");
   }
   return key;
 };
@@ -78,10 +88,13 @@ export const extractBillingInfo = async (rawText: string): Promise<PartyInfo> =>
 
   } catch (error: any) {
     console.error("Error extracting billing info:", error);
-    // Return a user-friendly error message
-    if (error.message.includes("API Key")) {
-      throw new Error("API Key configuration error. Please check settings.");
+    
+    // Pass through the specific missing key error
+    if (error.message === "API_KEY_MISSING") {
+      throw error;
     }
+
+    // Handle generic API errors
     throw new Error(error.message || "Failed to analyze text.");
   }
 };
