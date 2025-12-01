@@ -11,7 +11,6 @@ function App() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
 
-  // We add a specific ID to the invoice paper component to capture it
   const INVOICE_ELEMENT_ID = 'invoice-preview-area';
 
   const handleDownloadPDF = async () => {
@@ -21,36 +20,68 @@ function App() {
     setIsDownloading(true);
 
     try {
-      // 1. Capture the DOM element as a canvas
-      const canvas = await html2canvas(element, {
-        scale: 2, // Higher scale for better resolution
-        useCORS: true, // For images if any
+      // Robust PDF Generation Strategy: Clone & Capture
+      // This bypasses issues with scrolling, CSS transforms, and flex layouts in the main app view.
+      
+      // 1. Create a temporary container for the capture
+      const container = document.createElement('div');
+      container.style.position = 'absolute';
+      container.style.top = '-9999px';
+      container.style.left = '-9999px';
+      // Width must match the A4 ratio width we expect
+      container.style.width = '210mm'; 
+      container.style.zIndex = '-1';
+      document.body.appendChild(container);
+
+      // 2. Clone the invoice element
+      // We perform a deep clone of the React rendered DOM node
+      const clone = element.cloneNode(true) as HTMLElement;
+      
+      // 3. Reset specific styles on the clone to ensure perfect capture
+      clone.style.transform = 'none';
+      clone.style.margin = '0';
+      clone.style.boxShadow = 'none';
+      
+      // Append clone to temp container
+      container.appendChild(clone);
+
+      // 4. Capture using html2canvas
+      // Waiting a tick ensures DOM update
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const canvas = await html2canvas(clone, {
+        scale: 2, // High resolution
+        useCORS: true, // Handle images
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        width: 794, // Approx 210mm at 96 DPI
+        windowWidth: 794
       });
 
-      // 2. Calculate dimensions for A4 PDF
-      const imgWidth = 210; // A4 width in mm
-      const pageHeight = 297; // A4 height in mm
+      // 5. Cleanup
+      document.body.removeChild(container);
+
+      // 6. Generate PDF
+      const imgWidth = 210;
+      const pageHeight = 297;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       
-      // 3. Generate PDF
       const pdf = new jsPDF('p', 'mm', 'a4');
       const imgData = canvas.toDataURL('image/png');
       
       pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
       
-      // 4. Save
-      // Format: {BillToEmail}_invoice_{InvoiceNumber}.pdf
+      // 7. Save File
       const emailPrefix = invoiceData.recipient.email || 'invoice';
-      const cleanEmail = emailPrefix.split('@')[0].replace(/[^a-zA-Z0-9]/g, '_');
-      const fileName = `${invoiceData.recipient.email ? invoiceData.recipient.email : 'invoice'}_invoice_${invoiceData.invoiceNumber}.pdf`;
+      // Sanitize filename
+      const safeEmail = emailPrefix.split('@')[0].replace(/[^a-zA-Z0-9-_]/g, '');
+      const fileName = `${safeEmail ? safeEmail : 'invoice'}_invoice_${invoiceData.invoiceNumber}.pdf`;
       
       pdf.save(fileName);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('PDF Generation failed:', error);
-      alert('Failed to generate PDF. Please try again.');
+      alert(`Failed to generate PDF: ${error.message || 'Unknown error'}`);
     } finally {
       setIsDownloading(false);
     }

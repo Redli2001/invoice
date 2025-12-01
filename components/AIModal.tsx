@@ -27,7 +27,8 @@ const AIModal: React.FC<AIModalProps> = ({ isOpen, onClose, onSuccess }) => {
       onClose();
       setInputText('');
     } catch (err: any) {
-      setError('Failed to extract data. Please try again or check your text.');
+      // Display the specific error message from the service
+      setError(err.message || 'Failed to extract data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -55,8 +56,8 @@ const AIModal: React.FC<AIModalProps> = ({ isOpen, onClose, onSuccess }) => {
           />
           
           {error && (
-            <div className="mt-3 text-red-500 text-sm bg-red-50 p-2 rounded border border-red-100">
-              {error}
+            <div className="mt-3 text-red-600 text-xs bg-red-50 p-3 rounded border border-red-100">
+              <strong>Error:</strong> {error}
             </div>
           )}
         </div>

@@ -3,9 +3,12 @@ import { PartyInfo } from "../types";
 
 // Helper to validate API Key availability
 const getApiKey = (): string => {
+  // In some build environments, process.env might be defined but empty, or the key might be missing.
   const key = process.env.API_KEY;
-  if (!key) {
-    throw new Error("API Key is missing. Please set process.env.API_KEY.");
+  
+  if (!key || key.trim() === '') {
+    console.error("API_KEY is not set in the environment.");
+    throw new Error("API Key is missing. Please check your Vercel Environment Variables.");
   }
   return key;
 };
@@ -40,7 +43,8 @@ const recipientSchema: Schema = {
 
 export const extractBillingInfo = async (rawText: string): Promise<PartyInfo> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: getApiKey() });
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
     
     const prompt = `
       You are an expert data extraction assistant.
@@ -66,14 +70,18 @@ export const extractBillingInfo = async (rawText: string): Promise<PartyInfo> =>
 
     const jsonText = response.text;
     if (!jsonText) {
-      throw new Error("No response from AI");
+      throw new Error("AI returned an empty response.");
     }
 
     const data = JSON.parse(jsonText) as PartyInfo;
     return data;
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error extracting billing info:", error);
-    throw error;
+    // Return a user-friendly error message
+    if (error.message.includes("API Key")) {
+      throw new Error("API Key configuration error. Please check settings.");
+    }
+    throw new Error(error.message || "Failed to analyze text.");
   }
 };
